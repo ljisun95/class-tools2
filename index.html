@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선형 회귀 모델 시각화 (Linear Regression Visualizer)</title>
+    <!-- Tailwind CSS for Modern UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js for 3D Visualizations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for camera rotation -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- MathJax for beautiful LaTeX formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es6/jax/markup/xhtml/tag/Safe.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md py-4 px-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2.5 rounded-xl backdrop-blur-sm">
+                    <i class="fa-solid fa-chart-line text-2xl text-yellow-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2">
+                        선형 회귀 모델 시각화 도구
+                        <span class="text-xs bg-yellow-400 text-blue-900 font-bold px-2 py-0.5 rounded-full">인공지능 수학 수학II</span>
+                    </h1>
+                    <p class="text-xs text-blue-100 mt-0.5">독립 변수의 개수에 따른 데이터 차원의 변화와 예측 모델의 관계 이해하기</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-lg text-sm">
+                <span class="font-semibold text-green-300"><i class="fa-solid fa-graduation-cap mr-1"></i> 고등학교 2학년 대상</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Panel: Explanations & Controls (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- 1. Concept Card -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-3">
+                    <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">1</span>
+                    선형 회귀(Linear Regression)란?
+                </h2>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    주어진 <strong class="text-red-500 font-semibold">독립 변수($x$)</strong>를 활용하여 구하고자 하는 <strong class="text-blue-600 font-semibold">종속 변수($y$)</strong>를 가장 잘 예측할 수 있는 최적의 <span class="bg-yellow-100 text-slate-800 px-1 font-semibold rounded">회귀계수($w$)와 절편($b$)</span>을 찾는 인공지능 기초 모델입니다.
+                </p>
+                
+                <!-- Dynamic Equation Display -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center relative overflow-hidden">
+                    <div class="absolute top-2 left-2 text-[10px] text-slate-400 font-mono tracking-wider uppercase">현재 설정된 모델식</div>
+                    <div id="equation-display" class="text-lg md:text-xl font-bold text-indigo-700 py-3 transition-all duration-300">
+                        $$y = w_1 x_1 + b$$
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Interactive Controls -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col gap-5">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold">2</span>
+                        실시간 파라미터 조정
+                    </h2>
+                    <!-- Mode Switch Toggle -->
+                    <div class="flex bg-slate-100 p-1 rounded-lg">
+                        <button id="btn-simple" onclick="setMode('simple')" class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 bg-white text-indigo-600 shadow-sm">
+                            단순 선형 회귀 (2D)
+                        </button>
+                        <button id="btn-multiple" onclick="setMode('multiple')" class="px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 text-slate-500 hover:text-slate-800">
+                            다중 선형 회귀 (3D)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Slider 1: w1 -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-medium text-slate-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                            회귀계수 $w_1$ (목둘레 영향력)
+                        </span>
+                        <span id="val-w1" class="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">2.83</span>
+                    </div>
+                    <input type="range" id="slide-w1" min="-5" max="10" step="0.1" value="2.83" oninput="updateParameters()" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    <p class="text-[11px] text-slate-400">목둘레($x_1$)가 1cm 커질 때, 허리둘레($y$)가 얼마나 변하는지 나타냅니다.</p>
+                </div>
+
+                <!-- Slider 2: w2 (Conditionally Enabled) -->
+                <div id="container-w2" class="space-y-2 opacity-40 transition-all duration-300 pointer-events-none">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-medium text-slate-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            회귀계수 $w_2$ (체중 영향력)
+                        </span>
+                        <span id="val-w2" class="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">0.00</span>
+                    </div>
+                    <input type="range" id="slide-w2" min="-5" max="10" step="0.1" value="0.5" oninput="updateParameters()" disabled class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    <p class="text-[11px] text-slate-400">체중($x_2$)이 1kg 늘어날 때, 허리둘레($y$)가 얼마나 변하는지 나타냅니다.</p>
+                </div>
+
+                <!-- Slider 3: b -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-medium text-slate-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            y절편 $b$ (기본 예측치)
+                        </span>
+                        <span id="val-b" class="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">-24.72</span>
+                    </div>
+                    <input type="range" id="slide-b" min="-100" max="100" step="1" value="-24" oninput="updateParameters()" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    <p class="text-[11px] text-slate-400">입력변수의 값이 모두 0일 때의 종속 변수 예측치입니다.</p>
+                </div>
+
+                <!-- Preset Options & Info -->
+                <div class="mt-auto pt-4 border-t border-slate-100 flex flex-wrap gap-2">
+                    <span class="text-xs text-slate-500 font-semibold w-full">추천 시나리오:</span>
+                    <button onclick="applyPreset(2.83, 0, -24.72, 'simple')" class="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-medium transition-all">
+                        교과서 데이터 맞추기 (단순)
+                    </button>
+                    <button onclick="applyPreset(1.5, 0.4, -15, 'multiple')" class="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg font-medium transition-all">
+                        목둘레 + 체중 (다중회귀)
+                    </button>
+                    <button onclick="applyPreset(-1.5, 2.0, 10, 'multiple')" class="text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 px-3 py-1.5 rounded-lg font-medium transition-all">
+                        음(-)의 상관관계 테스트
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- 3. Mini Math Guide -->
+            <div class="bg-slate-800 text-slate-200 p-5 rounded-2xl shadow-md space-y-3">
+                <h3 class="text-white font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-lightbulb text-yellow-400"></i>
+                    학생 가이드 팁!
+                </h3>
+                <ul class="text-xs space-y-2 text-slate-300 list-disc list-inside leading-relaxed">
+                    <li><strong class="text-white">차원 변화:</strong> 단순회귀는 평면 상의 <strong>직선(2D)</strong>으로 예측하지만, 독립변수가 2개가 되면 3차원 공간 속 <strong>평면(3D-Hyperplane)</strong>으로 예측합니다.</li>
+                    <li><strong class="text-white">영향력:</strong> 회귀계수의 절댓값이 클수록 예측값($y$)에 큰 영향을 미칩니다. 절댓값이 작아질 때 직선/평면의 기울기가 어떻게 바뀌는지 살펴보세요.</li>
+                    <li><strong class="text-white">최적의 선:</strong> 임의로 흩어져 있는 파란 점들(실제 데이터)에 가장 골고루 밀착하도록 평면을 움직여보세요.</li>
+                </ul>
+            </div>
+
+        </section>
+
+        <!-- Right Panel: Immersive Simulation Window (7 Cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-4 min-h-[500px] lg:min-h-[auto]">
+            
+            <!-- Graphics Window Container -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden relative">
+                
+                <!-- Overlay Legend & Controls -->
+                <div class="absolute top-4 left-4 z-10 flex flex-col gap-2 pointer-events-none">
+                    <span id="dimension-badge" class="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 self-start pointer-events-auto">
+                        <i class="fa-solid fa-cube animate-spin-slow"></i>
+                        <span id="dimension-badge-text">2D 단순 선형 회귀 모드</span>
+                    </span>
+                    
+                    <div class="bg-white/95 backdrop-blur-md px-3 py-2 rounded-xl shadow-md border border-slate-100 text-[11px] space-y-1.5 pointer-events-auto">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span>
+                            <span class="font-medium text-slate-700">목둘레에 따른 허리둘레 데이터 점</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 bg-red-500 inline-block rounded-sm"></span>
+                            <span class="font-medium text-slate-700" id="legend-model">현재 탐색용 회귀 직선 ($y$)</span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 mt-1 italic"><i class="fa-solid fa-circle-info mr-1"></i> 마우스 드래그로 3D 공간을 회전해보세요!</div>
+                    </div>
+                </div>
+
+                <!-- Mode Indicator / Alert Panel inside Graphics -->
+                <div class="absolute bottom-4 right-4 z-10">
+                    <button onclick="resetCamera()" class="bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-2 rounded-xl shadow-md border border-slate-200 flex items-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-camera-rotate"></i> 카메라 시점 초기화
+                    </button>
+                </div>
+
+                <!-- Simulation Canvas -->
+                <div id="canvas-container" class="w-full h-[450px] lg:h-full min-h-[400px] bg-slate-900 flex-1 relative">
+                    <!-- Loading State -->
+                    <div id="canvas-loading" class="absolute inset-0 flex flex-col items-center justify-center text-white bg-slate-950 z-20 transition-opacity duration-500">
+                        <div class="w-12 h-12 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p class="text-sm font-semibold text-slate-300">3D 수학 공간을 렌더링하고 있습니다...</p>
+                    </div>
+                </div>
+
+                <!-- Sub-panel: Error Metric Real-time Tracking -->
+                <div class="bg-slate-50 border-t border-slate-100 p-4 grid grid-cols-2 gap-4">
+                    <div class="bg-white p-3 rounded-xl border border-slate-150 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 block">평균제곱오차 (MSE)</span>
+                            <span id="metric-mse" class="text-lg font-black font-mono text-indigo-600">Calculating...</span>
+                        </div>
+                        <div class="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-150 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 block">설명력 ($R^2$ Score)</span>
+                            <span id="metric-r2" class="text-lg font-black font-mono text-emerald-600">Calculating...</span>
+                        </div>
+                        <div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-6 border-t border-slate-800 text-center text-xs">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p>© 2026 고교 수학 및 인공지능 기초 교재 시각화 프로젝트. All rights reserved.</p>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-white transition-colors">이용 안내</a>
+                <a href="#" class="hover:text-white transition-colors">데이터셋 출처</a>
+                <a href="#" class="hover:text-white transition-colors">수학교사 가이드북</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script Block for Visualization & Math Logic -->
+    <script>
+        // --- 1. State Management & Variables ---
+        let mode = 'simple'; // 'simple' (2D) or 'multiple' (3D)
+        let w1 = 2.83;
+        let w2 = 0.00;
+        let b = -24.72;
+
+        // Mock Dataset (Based on realistic neck circumference, weight, waist circumference data)
+        // x1: neck (cm), x2: weight (kg), y: waist (cm)
+        const rawData = [
+            { x1: 33, x2: 55, y: 70 },
+            { x1: 34, x2: 58, y: 72 },
+            { x1: 35, x2: 60, y: 74 },
+            { x1: 36, x2: 63, y: 78 },
+            { x1: 36.5, x2: 65, y: 81 },
+            { x1: 37, x2: 68, y: 83 },
+            { x1: 38, x2: 70, y: 82 },
+            { x1: 38.5, x2: 72, y: 85 },
+            { x1: 39, x2: 75, y: 89 },
+            { x1: 40, x2: 80, y: 92 },
+            { x1: 41, x2: 82, y: 95 },
+            { x1: 42, x2: 85, y: 98 },
+            { x1: 43, x2: 90, y: 104 },
+            { x1: 44, x2: 93, y: 101 },
+            { x1: 45, x2: 95, y: 108 },
+            { x1: 46, x2: 100, y: 112 },
+            // Scattered outliers
+            { x1: 35, x2: 72, y: 82 },
+            { x1: 41, x2: 65, y: 79 },
+            { x1: 42, x2: 95, y: 106 },
+            { x1: 38, x2: 58, y: 71 }
+        ];
+
+        // Normalization parameters for 3D visualization matching bounds
+        // Neck range (30 ~ 50) -> mapped to (-10 ~ 10)
+        // Weight range (50 ~ 110) -> mapped to (-10 ~ 10)
+        // Waist range (60 ~ 120) -> mapped to (-10 ~ 10)
+        function mapX1(val) { return ((val - 30) / 20) * 20 - 10; }
+        function mapX2(val) { return ((val - 50) / 60) * 20 - 10; }
+        function mapY(val) { return ((val - 60) / 60) * 20 - 10; }
+
+        function unmapX1(val) { return ((val + 10) / 20) * 20 + 30; }
+        function unmapX2(val) { return ((val + 10) / 20) * 60 + 50; }
+        function unmapY(val) { return ((val + 10) / 20) * 60 + 60; }
+
+        // --- 2. Three.js Core Initialization ---
+        let scene, camera, renderer, controls;
+        let dataPoints = [];
+        let errorLines = [];
+        let regressionLine, regressionPlane;
+        let gridHelperXY, gridHelperXZ;
+        let xAxis, yAxis, zAxis;
+        let targetRotationY = 0;
+        let currentRotationY = 0;
+        let transitionProgress = 0.0; // 0.0 for 2D Simple, 1.0 for 3D Multiple
+
+        const container = document.getElementById('canvas-container');
+
+        function initThree() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a); // Slate-900
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            resetCamera();
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go too far underground
+            controls.minDistance = 5;
+            controls.maxDistance = 60;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(20, 40, 20);
+            scene.add(dirLight);
+
+            const pointLight = new THREE.PointLight(0xa5b4fc, 0.5, 50);
+            pointLight.position.set(-10, 10, -10);
+            scene.add(pointLight);
+
+            // Build Helpers & Axes
+            createCoordinateSystem();
+
+            // Build Data Points
+            createDataPoints();
+
+            // Build Regression Objects
+            createRegressionObjects();
+
+            // Remove Loading overlay
+            document.getElementById('canvas-loading').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('canvas-loading').style.display = 'none';
+            }, 500);
+
+            // Handle Resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Start Animation Loop
+            animate();
+        }
+
+        function resetCamera() {
+            if (mode === 'simple') {
+                camera.position.set(0, 0, 28);
+                if (controls) controls.target.set(0, 0, 0);
+            } else {
+                camera.position.set(18, 14, 18);
+                if (controls) controls.target.set(0, 0, 0);
+            }
+            if (controls) controls.update();
+        }
+
+        // --- 3. Grid, Axes & Coordinate Construction ---
+        function createCoordinateSystem() {
+            const axisMaterial = new THREE.LineBasicMaterial({ linewidth: 2 });
+            
+            // X-Axis (Neck Circumference / x1) - Red
+            const xGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-12, -10, -10), new THREE.Vector3(12, -10, -10)]);
+            const xMat = axisMaterial.clone();
+            xMat.color.setHex(0xf43f5e);
+            xAxis = new THREE.Line(xGeo, xMat);
+            scene.add(xAxis);
+
+            // Y-Axis (Waist Circumference / y) - Vertical - Green
+            const yGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-10, -12, -10), new THREE.Vector3(-10, 12, -10)]);
+            const yMat = axisMaterial.clone();
+            yMat.color.setHex(0x10b981);
+            yAxis = new THREE.Line(yGeo, yMat);
+            scene.add(yAxis);
+
+            // Z-Axis (Weight / x2) - Blue (Depth in 3D)
+            const zGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-10, -10, -12), new THREE.Vector3(-10, -10, 12)]);
+            const zMat = axisMaterial.clone();
+            zMat.color.setHex(0x3b82f6);
+            zAxis = new THREE.Line(zGeo, zMat);
+            scene.add(zAxis);
+
+            // Grids
+            gridHelperXY = new THREE.GridHelper(20, 20, 0x475569, 0x334155);
+            gridHelperXY.rotation.x = Math.PI / 2;
+            gridHelperXY.position.set(0, 0, -10);
+            scene.add(gridHelperXY);
+
+            gridHelperXZ = new THREE.GridHelper(20, 20, 0x3b82f6, 0x1e293b);
+            gridHelperXZ.position.set(0, -10, 0);
+            gridHelperXZ.material.opacity = 0.0; // Start invisible (2D mode)
+            gridHelperXZ.material.transparent = true;
+            scene.add(gridHelperXZ);
+
+            // Text Label creation helpers (using Sprites for 3D Text)
+            createLabel("목둘레 (x1)", 11, -11, -10, 0xf43f5e);
+            createLabel("허리둘레 (y)", -10, 11, -10, 0x10b981);
+            zLabel = createLabel("체중 (x2)", -10, -11, 11, 0x3b82f6);
+            zLabel.material.opacity = 0.0; // Start invisible
+        }
+
+        let zLabel;
+
+        function createLabel(text, x, y, z, colorHex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#' + colorHex.toString(16).padStart(6, '0');
+            ctx.font = 'bold 28px Noto Sans KR, Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(text, 128, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.position.set(x, y, z);
+            sprite.scale.set(4, 2, 1);
+            scene.add(sprite);
+            return sprite;
+        }
+
+        // --- 4. Data Points Generation ---
+        function createDataPoints() {
+            const sphereGeo = new THREE.SphereGeometry(0.35, 16, 16);
+            const sphereMat = new THREE.MeshPhongMaterial({
+                color: 0x3b82f6,
+                shininess: 100,
+                specular: 0xffffff
+            });
+
+            rawData.forEach(data => {
+                const mesh = new THREE.Mesh(sphereGeo, sphereMat.clone());
+                // Map the scaled values
+                const mappedX1 = mapX1(data.x1);
+                const mappedX2 = mapX2(data.x2);
+                const mappedY = mapY(data.y);
+
+                // Default 2D position (Z-axis fixed to background plane at -10)
+                mesh.position.set(mappedX1, mappedY, -10);
+                
+                // Store actual target positions for interpolation
+                mesh.userData = {
+                    pos2D: new THREE.Vector3(mappedX1, mappedY, -10),
+                    pos3D: new THREE.Vector3(mappedX1, mappedY, mappedX2),
+                    rawData: data
+                };
+
+                scene.add(mesh);
+                dataPoints.push(mesh);
+
+                // Error Indicator Lines (Residuals)
+                const lineMat = new THREE.LineDashedMaterial({
+                    color: 0xe2e8f0,
+                    dashSize: 0.5,
+                    gapSize: 0.3,
+                });
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    mesh.position,
+                    mesh.position // Target updated on render
+                ]);
+                const errorLine = new THREE.LineSegments(lineGeo, lineMat);
+                errorLine.computeLineDistances();
+                scene.add(errorLine);
+                errorLines.push(errorLine);
+            });
+        }
+
+        // --- 5. Regression Line & Plane Mesh Setup ---
+        function createRegressionObjects() {
+            // 1. Regression Line (For Simple 2D)
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 4 });
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-10, 0, -10),
+                new THREE.Vector3(10, 0, -10)
+            ]);
+            regressionLine = new THREE.Line(lineGeo, lineMat);
+            scene.add(regressionLine);
+
+            // 2. Regression Plane (For Multiple 3D)
+            // Creates a grid representing the y = w1*x1 + w2*x2 + b equation space
+            const planeGeo = new THREE.PlaneGeometry(20, 20, 20, 20);
+            const planeMat = new THREE.MeshPhongMaterial({
+                color: 0xf59e0b,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.7,
+                wireframe: false,
+                flatShading: true
+            });
+            regressionPlane = new THREE.Mesh(planeGeo, planeMat);
+            regressionPlane.rotation.x = -Math.PI / 2; // Lie flat initially
+            regressionPlane.position.set(0, -10, 0);
+            regressionPlane.visible = false; // Hidden in 2D
+            scene.add(regressionPlane);
+        }
+
+        // --- 6. Interactivity & Interactive Updates ---
+        function setMode(newMode) {
+            mode = newMode;
+            
+            // UI Toggle States
+            const btnSimple = document.getElementById('btn-simple');
+            const btnMultiple = document.getElementById('btn-multiple');
+            const containerW2 = document.getElementById('container-w2');
+            const slideW2 = document.getElementById('slide-w2');
+            const badge = document.getElementById('dimension-badge');
+            const badgeText = document.getElementById('dimension-badge-text');
+            const legendModel = document.getElementById('legend-model');
+
+            if (mode === 'simple') {
+                btnSimple.className = "px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 bg-white text-indigo-600 shadow-sm";
+                btnMultiple.className = "px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 text-slate-500 hover:text-slate-800";
+                containerW2.classList.add('opacity-40', 'pointer-events-none');
+                slideW2.disabled = true;
+                
+                badge.className = "bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 self-start pointer-events-auto";
+                badgeText.innerText = "2D 단순 선형 회귀 모드";
+                legendModel.innerText = "현재 탐색용 회귀 직선 (y)";
+
+                w2 = 0; // Reset weight coefficient
+                document.getElementById('val-w2').innerText = "0.00";
+                
+                // Tracing line back to 2D
+                regressionLine.visible = true;
+                regressionPlane.visible = false;
+            } else {
+                btnSimple.className = "px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 text-slate-500 hover:text-slate-800";
+                btnMultiple.className = "px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200 bg-white text-indigo-600 shadow-sm";
+                containerW2.classList.remove('opacity-40', 'pointer-events-none');
+                slideW2.disabled = false;
+                
+                badge.className = "bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 self-start pointer-events-auto";
+                badgeText.innerText = "3D 다중 선형 회귀 모드";
+                legendModel.innerText = "현재 탐색용 회귀 평면 (y)";
+
+                w2 = parseFloat(slideW2.value);
+                document.getElementById('val-w2').innerText = w2.toFixed(2);
+
+                regressionLine.visible = false;
+                regressionPlane.visible = true;
+            }
+
+            resetCamera();
+            updateMathEquation();
+            calculateMetrics();
+        }
+
+        function updateParameters() {
+            w1 = parseFloat(document.getElementById('slide-w1').value);
+            w2 = mode === 'multiple' ? parseFloat(document.getElementById('slide-w2').value) : 0;
+            b = parseFloat(document.getElementById('slide-b').value);
+
+            document.getElementById('val-w1').innerText = w1.toFixed(2);
+            document.getElementById('val-w2').innerText = w2.toFixed(2);
+            document.getElementById('val-b').innerText = b.toFixed(2);
+
+            updateMathEquation();
+            calculateMetrics();
+        }
+
+        function applyPreset(presetW1, presetW2, presetB, targetMode) {
+            document.getElementById('slide-w1').value = presetW1;
+            document.getElementById('slide-w2').value = presetW2;
+            document.getElementById('slide-b').value = presetB;
+            
+            setMode(targetMode);
+            updateParameters();
+        }
+
+        function updateMathEquation() {
+            const eqDiv = document.getElementById('equation-display');
+            let formula = "";
+            
+            if (mode === 'simple') {
+                const bSign = b >= 0 ? `+ ${b.toFixed(2)}` : `- ${Math.abs(b).toFixed(2)}`;
+                formula = `$$y = ${w1.toFixed(2)} x_1 ${bSign}$$`;
+            } else {
+                const w2Sign = w2 >= 0 ? `+ ${w2.toFixed(2)}` : `- ${Math.abs(w2).toFixed(2)}`;
+                const bSign = b >= 0 ? `+ ${b.toFixed(2)}` : `- ${Math.abs(b).toFixed(2)}`;
+                formula = `$$y = ${w1.toFixed(2)} x_1 ${w2Sign} x_2 ${bSign}$$`;
+            }
+
+            eqDiv.innerHTML = formula;
+            // Trigger MathJax re-render
+            if (window.MathJax) {
+                MathJax.typesetPromise([eqDiv]);
+            }
+        }
+
+        // Calculate Real-time metrics
+        function calculateMetrics() {
+            let totalSquaredError = 0;
+            let sumY = 0;
+            
+            rawData.forEach(d => {
+                const predY = (w1 * d.x1) + (w2 * d.x2) + b;
+                const error = d.y - predY;
+                totalSquaredError += error * error;
+                sumY += d.y;
+            });
+
+            const mse = totalSquaredError / rawData.length;
+            document.getElementById('metric-mse').innerText = mse.toFixed(2);
+
+            // Compute R-squared (coefficient of determination)
+            const meanY = sumY / rawData.length;
+            let totalSumSquares = 0;
+            rawData.forEach(d => {
+                const diff = d.y - meanY;
+                totalSumSquares += diff * diff;
+            });
+
+            const r2 = 1 - (totalSquaredError / totalSumSquares);
+            document.getElementById('metric-r2').innerText = r2.toFixed(3);
+        }
+
+        // --- 7. Math Model Projection Logic ---
+        function updateModelGeometries() {
+            if (mode === 'simple') {
+                // Update Line Geometry in 3D Space mapped coordinate system
+                const linePositions = [];
+                // Generate simple points along X range [-10, 10]
+                for (let mx = -10; mx <= 10; mx += 1) {
+                    const originalX1 = unmapX1(mx);
+                    const originalY = (w1 * originalX1) + b;
+                    const mappedY = mapY(originalY);
+
+                    // Constrain view limits safely
+                    const safeY = Math.max(-12, Math.min(12, mappedY));
+                    linePositions.push(new THREE.Vector3(mx, safeY, -10));
+                }
+
+                // Smooth mapping
+                const curve = new THREE.CatmullRomCurve3(linePositions);
+                const points = curve.getPoints(50);
+                regressionLine.geometry.setFromPoints(points);
+            } else {
+                // Update 3D Surface plane
+                const positions = regressionPlane.geometry.attributes.position;
+                
+                // Traverse and update Z positions (which is Height in native plane geometry,
+                // but since we rotate it, we dynamically update height map)
+                for (let i = 0; i < positions.count; i++) {
+                    const px = positions.getX(i); // mapped x1 (-10 to 10)
+                    const py = positions.getY(i); // mapped x2 (-10 to 10)
+
+                    const realX1 = unmapX1(px);
+                    const realX2 = unmapX2(py);
+                    const realY = (w1 * realX1) + (w2 * realX2) + b;
+                    const mappedY = mapY(realY);
+
+                    // In local coordinates of geometry, Z is the elevation/displacement
+                    positions.setZ(i, mappedY + 10); // Offset to counter initial position.y of plane
+                }
+                positions.needsUpdate = true;
+                regressionPlane.geometry.computeVertexNormals();
+            }
+        }
+
+        // --- 8. Dynamic Animation & Event Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 1. Interpolation Transition for Dimension shifting
+            const targetProgress = mode === 'multiple' ? 1.0 : 0.0;
+            transitionProgress += (targetProgress - transitionProgress) * 0.08; // Smooth transition
+
+            // 2. Animate Data Point Positions based on 2D <-> 3D switch
+            dataPoints.forEach((mesh, index) => {
+                const pos2D = mesh.userData.pos2D;
+                const pos3D = mesh.userData.pos3D;
+
+                // LERP (Linear Interpolation)
+                mesh.position.lerpVectors(pos2D, pos3D, transitionProgress);
+
+                // Update Error Lines
+                const errorLine = errorLines[index];
+                const realData = mesh.userData.rawData;
+                
+                // Get current predicted Y base
+                const predY = (w1 * realData.x1) + (w2 * (transitionProgress > 0.5 ? realData.x2 : 0)) + b;
+                const mappedPredY = mapY(predY);
+                
+                const points = [
+                    mesh.position, // Point Position
+                    new THREE.Vector3(mesh.position.x, mappedPredY, mesh.position.z) // Prediction projection target
+                ];
+                
+                errorLine.geometry.setFromPoints(points);
+                errorLine.geometry.attributes.position.needsUpdate = true;
+
+                // Color lines: Green if error is small, Red if error is large
+                const errorVal = Math.abs(realData.y - predY);
+                if (errorVal < 5) {
+                    errorLine.material.color.setHex(0x10b981); // Emerald
+                } else if (errorVal < 15) {
+                    errorLine.material.color.setHex(0xf59e0b); // Yellow
+                } else {
+                    errorLine.material.color.setHex(0xef4444); // Red
+                }
+            });
+
+            // 3. Animate Visibility of helper components
+            gridHelperXZ.material.opacity = transitionProgress * 0.4;
+            zLabel.material.opacity = transitionProgress;
+
+            // 4. Update the Linear Plane/Line
+            updateModelGeometries();
+
+            // Controls update
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // Run once UI/DOM is ready
+        window.onload = function() {
+            initThree();
+            updateMathEquation();
+            calculateMetrics();
+        };
+    </script>
+</body>
+</html>
